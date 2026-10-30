@@ -18,28 +18,36 @@ export default function App() {
   const [selectedTime, setSelectedTime] = useState('');
   const [formData, setFormData] = useState({ name: '', phone: '' });
   
-  // Faqat shu brauzerdagi foydalanuvchining shaxsiy bronlari (localStorage orqali maxfiy saqlanadi)
-  const [myBookings, setMyBookings] = useState(() => {
-    const saved = localStorage.getItem('my_beauty_bookings');
+  // Rejim: false = Mijoz ko'rinishi, true = Salonchi (Admin) ko'rinishi
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  // Barcha bronlar (Salonchi ko'ra oladigan ro'yxat)
+  const [allBookings, setAllBookings] = useState(() => {
+    const saved = localStorage.getItem('salon_all_bookings');
     return saved ? JSON.parse(saved) : [];
   });
 
   const [notification, setNotification] = useState('');
 
-  // Bronlar o'zgarganda brauzer xotirasiga saqlash
+  // Bronlarni saqlash
   useEffect(() => {
-    localStorage.setItem('my_beauty_bookings', JSON.stringify(myBookings));
-  }, [myBookings]);
+    localStorage.setItem('salon_all_bookings', JSON.stringify(allBookings));
+  }, [allBookings]);
 
-  // Vaqt band qilinganligini tekshirish
+  // Muayyan vaqt band ekanligini tekshirish
   const isSlotBooked = (date, time) => {
-    return myBookings.some(slot => slot.date === date && slot.time === time);
+    return allBookings.some(slot => slot.date === date && slot.time === time);
   };
 
   const handleBooking = (e) => {
     e.preventDefault();
     if (!selectedDate || !selectedTime || !formData.name || !formData.phone) {
       alert("Iltimos, barcha maydonlarni to'ldiring!");
+      return;
+    }
+
+    if (isSlotBooked(selectedDate, selectedTime)) {
+      alert("Ushbu vaqt allaqachon band qilingan! Boshqa vaqt tanlang.");
       return;
     }
 
@@ -50,11 +58,12 @@ export default function App() {
       serviceName: currentServiceObj.name,
       date: selectedDate,
       time: selectedTime,
-      ...formData
+      name: formData.name,
+      phone: formData.phone
     };
 
-    setMyBookings([...myBookings, newBooking]);
-    setNotification(`Rahmat, ${formData.name}! Sizning broningiz muvaffaqiyatli saqlandi.`);
+    setAllBookings([...allBookings, newBooking]);
+    setNotification(`Rahmat, ${formData.name}! Broningiz muvaffaqiyatli tasdiqlandi.`);
     
     // Formani tozalash
     setSelectedTime('');
@@ -63,10 +72,10 @@ export default function App() {
     setTimeout(() => setNotification(''), 5000);
   };
 
-  // Faqat o'zining bronini bekor qilish
+  // Admin bronni bekor qilishi yoki o'chirishi uchun
   const handleCancelBooking = (id) => {
-    setMyBookings(myBookings.filter(slot => slot.id !== id));
-    setNotification("Broningiz muvaffaqiyatli bekor qilindi.");
+    setAllBookings(allBookings.filter(slot => slot.id !== id));
+    setNotification("Bron ro'yxatdan o'chirildi.");
     setTimeout(() => setNotification(''), 4000);
   };
 
@@ -78,7 +87,13 @@ export default function App() {
           <nav className="navbar">
             <div className="logo">✨ Glamour Beauty</div>
             <div className="contact-quick">
-              <span>📞 +998 (90) 123-45-67</span>
+              {/* Salonchi va Mijoz rejimini almashtirish tugmasi */}
+              <button 
+                className="admin-toggle-btn" 
+                onClick={() => setIsAdmin(!isAdmin)}
+              >
+                {isAdmin ? "👁️ Mijoz Rejimiga O'tish" : "🔑 Admin (Salonchi) Paneli"}
+              </button>
             </div>
           </nav>
           <div className="hero-content">
@@ -171,54 +186,61 @@ export default function App() {
             </form>
           </section>
 
-          {/* Faqat foydalanuvchining o'ziga ko'rinadigan shaxsiy kabinet / bronlar bo'limi */}
+          {/* O'ng tarafdagi panel: Admin bo'lsa barcha bronlar ko'rinadi, aks holda manzil va ma'lumotlar */}
           <aside className="card info-section">
-            <h2>Mening Shaxsiy Bronlarim 🔒</h2>
-            {myBookings.length === 0 ? (
-              <p className="info-text">Sizda hozircha faol bronlar yo'q. (Bu yerda faqat sizning shaxsiy vaqtlaringiz ko'rinadi)</p>
-            ) : (
-              <div className="my-bookings-list">
-                {myBookings.map((item) => (
-                  <div key={item.id} className="booking-ticket">
-                    <div className="ticket-header">
-                      <strong>{item.serviceName}</strong>
-                      <button 
-                        className="cancel-btn" 
-                        onClick={() => handleCancelBooking(item.id)}
-                        title="Bekor qilish"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <p>👤 {item.name} ({item.phone})</p>
-                    <p>📅 <strong>{item.date}</strong> | ⏰ <strong>{item.time}</strong></p>
+            {isAdmin ? (
+              <>
+                <h2>🔑 Barcha Bronlar (Admin)</h2>
+                {allBookings.length === 0 ? (
+                  <p className="info-text">Hozircha hech qanday bron yo'q.</p>
+                ) : (
+                  <div className="my-bookings-list">
+                    {allBookings.map((item) => (
+                      <div key={item.id} className="booking-ticket">
+                        <div className="ticket-header">
+                          <strong>{item.serviceName}</strong>
+                          <button 
+                            className="cancel-btn" 
+                            onClick={() => handleCancelBooking(item.id)}
+                            title="Bekor qilish"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <p>👤 <strong>{item.name}</strong></p>
+                        <p>📞 <a href={`tel:${item.phone}`}>{item.phone}</a></p>
+                        <p>📅 {item.date} | ⏰ <strong>{item.time}</strong></p>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                )}
+              </>
+            ) : (
+              <>
+                <h2>Biz haqimizda</h2>
+                <div className="info-item">
+                  <h3>📍 Manzil</h3>
+                  <p>Toshkent shahri, Yunusobod tumani, Amir Temur ko'chasi 45-uy</p>
+                  <p className="sub-text">(Mo'ljal: Minor metro bekati)</p>
+                </div>
+
+                <div className="info-item">
+                  <h3>📞 Telefon</h3>
+                  <p>+998 (90) 123-45-67</p>
+                  <p>+998 (71) 200-00-00</p>
+                </div>
+
+                <div className="info-item">
+                  <h3>⏰ Ish vaqti</h3>
+                  <p>Dushanba - Yakshanba</p>
+                  <p>09:00 - 21:00 (Haftasiz dam olishsiz)</p>
+                </div>
+
+                <div className="map-placeholder">
+                  <p>🗺️ Xarita (Google Map / Yandex Map)</p>
+                </div>
+              </>
             )}
-
-            <h2>Biz haqimizda</h2>
-            <div className="info-item">
-              <h3>📍 Manzil</h3>
-              <p>Toshkent shahri, Yunusobod tumani, Amir Temur ko'chasi 45-uy</p>
-              <p className="sub-text">(Mo'ljal: Minor metro bekati)</p>
-            </div>
-
-            <div className="info-item">
-              <h3>📞 Telefon</h3>
-              <p>+998 (90) 123-45-67</p>
-              <p>+998 (71) 200-00-00</p>
-            </div>
-
-            <div className="info-item">
-              <h3>⏰ Ish vaqti</h3>
-              <p>Dushanba - Yakshanba</p>
-              <p>09:00 - 21:00 (Haftasiz dam olishsiz)</p>
-            </div>
-
-            <div className="map-placeholder">
-              <p>🗺️ Xarita (Google Map / Yandex Map)</p>
-            </div>
           </aside>
         </div>
       </main>
