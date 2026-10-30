@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 const SERVICES = [
@@ -17,11 +17,23 @@ export default function App() {
   const [selectedDate, setSelectedDate] = useState('');
   const [selectedTime, setSelectedTime] = useState('');
   const [formData, setFormData] = useState({ name: '', phone: '' });
-  const [bookedSlots, setBookedSlots] = useState([]);
+  
+  // Faqat shu brauzerdagi foydalanuvchining shaxsiy bronlari (localStorage orqali maxfiy saqlanadi)
+  const [myBookings, setMyBookings] = useState(() => {
+    const saved = localStorage.getItem('my_beauty_bookings');
+    return saved ? JSON.parse(saved) : [];
+  });
+
   const [notification, setNotification] = useState('');
 
+  // Bronlar o'zgarganda brauzer xotirasiga saqlash
+  useEffect(() => {
+    localStorage.setItem('my_beauty_bookings', JSON.stringify(myBookings));
+  }, [myBookings]);
+
+  // Vaqt band qilinganligini tekshirish
   const isSlotBooked = (date, time) => {
-    return bookedSlots.some(slot => slot.date === date && slot.time === time);
+    return myBookings.some(slot => slot.date === date && slot.time === time);
   };
 
   const handleBooking = (e) => {
@@ -31,21 +43,31 @@ export default function App() {
       return;
     }
 
+    const currentServiceObj = SERVICES.find(s => s.id === selectedService);
+
     const newBooking = {
-      service: selectedService,
+      id: Date.now(),
+      serviceName: currentServiceObj.name,
       date: selectedDate,
       time: selectedTime,
       ...formData
     };
 
-    setBookedSlots([...bookedSlots, { date: selectedDate, time: selectedTime }]);
-    setNotification(`Rahmat, ${formData.name}! Bron muvaffaqiyatli tasdiqlandi.`);
+    setMyBookings([...myBookings, newBooking]);
+    setNotification(`Rahmat, ${formData.name}! Sizning broningiz muvaffaqiyatli saqlandi.`);
     
     // Formani tozalash
     setSelectedTime('');
     setFormData({ name: '', phone: '' });
 
     setTimeout(() => setNotification(''), 5000);
+  };
+
+  // Faqat o'zining bronini bekor qilish
+  const handleCancelBooking = (id) => {
+    setMyBookings(myBookings.filter(slot => slot.id !== id));
+    setNotification("Broningiz muvaffaqiyatli bekor qilindi.");
+    setTimeout(() => setNotification(''), 4000);
   };
 
   return (
@@ -149,8 +171,32 @@ export default function App() {
             </form>
           </section>
 
-          {/* Manzil va Aloqa bo'limi */}
+          {/* Faqat foydalanuvchining o'ziga ko'rinadigan shaxsiy kabinet / bronlar bo'limi */}
           <aside className="card info-section">
+            <h2>Mening Shaxsiy Bronlarim 🔒</h2>
+            {myBookings.length === 0 ? (
+              <p className="info-text">Sizda hozircha faol bronlar yo'q. (Bu yerda faqat sizning shaxsiy vaqtlaringiz ko'rinadi)</p>
+            ) : (
+              <div className="my-bookings-list">
+                {myBookings.map((item) => (
+                  <div key={item.id} className="booking-ticket">
+                    <div className="ticket-header">
+                      <strong>{item.serviceName}</strong>
+                      <button 
+                        className="cancel-btn" 
+                        onClick={() => handleCancelBooking(item.id)}
+                        title="Bekor qilish"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <p>👤 {item.name} ({item.phone})</p>
+                    <p>📅 <strong>{item.date}</strong> | ⏰ <strong>{item.time}</strong></p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <h2>Biz haqimizda</h2>
             <div className="info-item">
               <h3>📍 Manzil</h3>
